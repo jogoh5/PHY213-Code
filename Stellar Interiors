@@ -1,0 +1,468 @@
+from scipy.interpolate import interp1d
+import numpy as np 
+import matplotlib.pyplot as plt 
+
+def lane_emden(n): # function to produce values of xi, theta and first derivative of xi
+    xi_0=0.00001 # need to start out with a small but non-zero value of xi
+    theta_0=1 # starting value of theta
+    dtheta_0=0 # starting value of derivative of xi
+    step=0.001 # step size in xi is 0.001
+    # set up lists for xi, theta, dxi, populated with initial values
+    xi=[xi_0]
+    theta=[theta_0]
+    dtheta=[dtheta_0]
+    #set up initial values for incrementing process
+    xi_i=xi[-1] # final value in list
+    theta_i=theta[-1]
+    dtheta_i=dtheta[-1]
+    xi_zeros = []
+    # next step is to use Eulerian method to generate subsequent values of xi, theta, dxi
+    # we'll use a while loop for this, which cuts out as soon as theta becomes negative, as this will define the first value beyond the maximum radius of the star.
+    # we want to ensure that we do calculate and store this last value, as we need it to determine the intercept value of xi when theta=0
+    # we also want to include an alternative termination condition for n=5, for which theta doesn't cross the x-axis until xi=infinity
+    while xi_i<20 and theta_i>=0:
+        # need to determine new value of dtheta_i first of all
+        dtheta_i=dtheta_i - step * ((2*dtheta_i/xi_i) + theta_i**n)
+        # use new value of dtheta_i to determine new value of theta_i
+        theta_i=theta_i + step * dtheta_i
+        # increment xi
+        xi_i=xi_i+step
+        # append new values into the lists
+        xi.append(xi_i)
+        theta.append(theta_i)
+        dtheta.append(dtheta_i)
+        
+        if theta[-1] * theta[-2] < 0:
+            xi_zeros.append(xi[-1])
+        theta_array = np.array(theta)
+        xi_array = np.array(xi)
+        dtheta_array = np.array(dtheta)
+    return xi_array, theta_array, dtheta_array, xi_zeros # return the completed lists of xi, theta and dxi for the chosen value of n
+
+n_values = range(6)
+
+
+plt.figure(figsize=[10,10])  # define size of plot window first of all
+
+# add labels
+plt.xlabel('dimensionless radius')
+plt.ylabel('dimensionless density')
+plt.title('Solutions to the Lane Emden Equation')
+
+xi_zero_list = []
+
+def grad(n):
+    xi, theta, dtheta, xi_zeros = lane_emden(n)
+    f = interp1d(theta, xi, bounds_error=False)
+    xi_0 = f(0)
+    g = interp1d(xi, dtheta)
+    grad_0 = abs(g(xi_0))
+    return xi_0, grad_0
+
+
+    
+
+for n in n_values:
+    xi, theta, _, xi_zeros= lane_emden(n)
+    plt.plot(xi, theta, label=f'n = {n}')
+    print(f'For n = {n}, xi values where theta = 0:', end=' ')
+    for xi_zero in xi_zeros:
+        xi_zero_list.append(xi_zeros)
+        print(f'{xi_zero:.3f}', end=' ')
+    print()
+plt.legend()
+plt.savefig("Lane Emden Solutions Graph")
+plt.show()
+
+#Create plots of M, P, \rho and T vs. r for the Standard Solar Model.
+import numpy as np
+import matplotlib.pyplot as plt
+
+myData = np.loadtxt('ssm.txt', skiprows=1)
+
+mass = myData[:,0]
+radius = myData[:,1]
+temp = myData[:,2]
+rho = 1000*myData[:,3]
+P = myData[:,4]/10
+mu = myData[:,12]
+
+log_rho = np.log10(rho)
+log_T = np.log10(temp)
+log_P = np.log10(P)
+
+
+plt.subplot(1,1,1)
+plt.plot(radius, mass)
+plt.xlabel('Radius/solar radii')
+plt.ylabel('Rass/solar masses')
+plt.title("Radius vs Mass")
+plt.savefig("Solar Radius Mass")
+plt.show()
+
+
+
+plt.subplot(1,2,1)
+plt.plot(radius, temp, color = 'orange')
+plt.xlabel('Radius/solar radii')
+plt.ylabel('Temperature/K')
+plt.title("Radius vs Temperature")
+plt.savefig("Solar Radius Temp")
+plt.show()
+
+
+plt.subplot(2,1,1)
+plt.plot(radius, rho, color = 'red')
+plt.xlabel('Radius/solar radii')
+plt.ylabel('Density/$\mathregular{kgm^{-3}}$ ')
+plt.title("Radius vs Density")
+plt.savefig("Solar Radius Rho")
+plt.show()
+
+
+plt.subplot(2,2,1)
+plt.plot(radius, P, color = 'yellow')
+plt.xlabel('Radius/solar radii')
+plt.ylabel('Pressure/Pa')
+plt.title("Radius vs Pressure")
+plt.savefig("Solar Radius Pressure")
+plt.show()
+
+intercept0 = xi_zero_list[0]
+intercept1 = xi_zero_list[1]
+intercept2 = xi_zero_list[2]
+intercept3 = xi_zero_list[3]
+intercept4 = xi_zero_list[4]
+
+#Calculation for alpha
+
+r_sol = 6.957e8
+
+alpha0 = r_sol/intercept0[0]
+alpha1 = r_sol/intercept1[0]
+alpha2 = r_sol/intercept2[0]
+alpha3 = r_sol/intercept3[0]
+alpha4 = r_sol/intercept4[0]
+
+#Calculation for radius
+
+xi0, grad0, dtheta, xi_zeros = lane_emden(0)
+xi1, grad1, dtheta, xi_zeros = lane_emden(1)
+xi2, grad2, dtheta, xi_zeros = lane_emden(2)
+xi3, grad3, dtheta, xi_zeros = lane_emden(3)
+xi4, grad4, dtheta, xi_zeros = lane_emden(4)
+
+r0 = (xi0*alpha0)/r_sol
+r1 = (xi1*alpha1)/r_sol
+r2 = (xi2*alpha2)/r_sol
+r3 = (xi3*alpha3)/r_sol
+r4 = (xi4*alpha4)/r_sol 
+
+
+#Calculate the central density
+
+def gradient(n):
+    xi, theta, dtheta, xi_zeros = lane_emden(n)
+    f = interp1d(theta, xi, bounds_error=False)
+    xi_0 = f(0)
+    g = interp1d(xi, dtheta)
+    grad_0 = abs(g(xi_0))
+    return dtheta
+
+dtheta_0 = gradient(0)
+dtheta_1 = gradient(1)
+dtheta_2 = gradient(2)
+dtheta_3 = gradient(3)
+dtheta_4 = gradient(4)
+
+M_sol = 1.989e30
+
+rho_c0 = -M_sol*intercept0[0]/(4*np.pi*r_sol**3*dtheta_0[-1])
+rho_c1 = -M_sol*intercept1[0]/(4*np.pi*r_sol**3*dtheta_1[-1])
+rho_c2 = -M_sol*intercept2[0]/(4*np.pi*r_sol**3*dtheta_2[-1])
+rho_c3 = -M_sol*intercept3[0]/(4*np.pi*r_sol**3*dtheta_3[-1])
+rho_c4 = -M_sol*intercept4[0]/(4*np.pi*r_sol**3*dtheta_4[-1])
+
+#Calculate density values
+
+rho0 = rho_c0*grad0**0
+rho1 = rho_c1*grad1**1
+rho2 = rho_c2*grad2**2
+rho3 = rho_c3*grad3**3
+rho4 = rho_c4*grad4**4
+
+#Log of the values
+
+log_rho0 = np.log10(rho0)
+log_rho1 = np.log10(rho1)
+log_rho2 = np.log10(rho2)
+log_rho3 = np.log10(rho3)
+log_rho4 = np.log10(rho4)
+
+
+intercept0 = xi_zero_list[0]
+intercept1 = xi_zero_list[1]
+intercept2 = xi_zero_list[2]
+intercept3 = xi_zero_list[3]
+intercept4 = xi_zero_list[4]
+
+#Calculation for alpha
+
+r_sol = 6.957e8
+
+alpha0 = r_sol/intercept0[0]
+alpha1 = r_sol/intercept1[0]
+alpha2 = r_sol/intercept2[0]
+alpha3 = r_sol/intercept3[0]
+alpha4 = r_sol/intercept4[0]
+
+#Calculation for radius
+
+xi0, grad0, dtheta, xi_zeros = lane_emden(0)
+xi1, grad1, dtheta, xi_zeros = lane_emden(1)
+xi2, grad2, dtheta, xi_zeros = lane_emden(2)
+xi3, grad3, dtheta, xi_zeros = lane_emden(3)
+xi4, grad4, dtheta, xi_zeros = lane_emden(4)
+
+r0 = (xi0*alpha0)/r_sol
+r1 = (xi1*alpha1)/r_sol
+r2 = (xi2*alpha2)/r_sol
+r3 = (xi3*alpha3)/r_sol
+r4 = (xi4*alpha4)/r_sol 
+
+
+#Calculate the central density
+
+def gradient(n):
+    xi, theta, dtheta, xi_zeros = lane_emden(n)
+    f = interp1d(theta, xi, bounds_error=False)
+    xi_0 = f(0)
+    g = interp1d(xi, dtheta)
+    grad_0 = abs(g(xi_0))
+    return dtheta
+
+dtheta_0 = gradient(0)
+dtheta_1 = gradient(1)
+dtheta_2 = gradient(2)
+dtheta_3 = gradient(3)
+dtheta_4 = gradient(4)
+
+M_sol = 1.989e30
+
+rho_c0 = -M_sol*intercept0[0]/(4*np.pi*r_sol**3*dtheta_0[-1])
+rho_c1 = -M_sol*intercept1[0]/(4*np.pi*r_sol**3*dtheta_1[-1])
+rho_c2 = -M_sol*intercept2[0]/(4*np.pi*r_sol**3*dtheta_2[-1])
+rho_c3 = -M_sol*intercept3[0]/(4*np.pi*r_sol**3*dtheta_3[-1])
+rho_c4 = -M_sol*intercept4[0]/(4*np.pi*r_sol**3*dtheta_4[-1])
+
+#Calculate density values
+
+rho0 = rho_c0*grad0**0
+rho1 = rho_c1*grad1**1
+rho2 = rho_c2*grad2**2
+rho3 = rho_c3*grad3**3
+rho4 = rho_c4*grad4**4
+
+#Log of the values
+
+log_rho0 = np.log10(rho0)
+log_rho1 = np.log10(rho1)
+log_rho2 = np.log10(rho2)
+log_rho3 = np.log10(rho3)
+log_rho4 = np.log10(rho4)
+
+
+#Mass calculations
+def gradient(n):
+    xi, theta, dtheta, xi_zeros = lane_emden(n)
+    f = interp1d(theta, xi, bounds_error=False)
+    xi_0 = f(0)
+    g = interp1d(xi, dtheta)
+    grad_0 = abs(g(xi_0))
+    return dtheta
+
+dtheta_0 = gradient(0)
+dtheta_1 = gradient(1)
+dtheta_2 = gradient(2)
+dtheta_3 = gradient(3)
+dtheta_4 = gradient(4)
+
+
+
+
+M0 = -4*np.pi*alpha0**3*rho_c0*xi0**2*dtheta_0/M_sol
+M1 = -4*np.pi*alpha1**3*rho_c1*xi1**2*dtheta_1/M_sol
+M2 = -4*np.pi*alpha2**3*rho_c2*xi2**2*dtheta_2/M_sol
+M3 = -4*np.pi*alpha3**3*rho_c3*xi3**2*dtheta_3/M_sol
+M4 = -4*np.pi*alpha4**3*rho_c4*xi4**2*dtheta_4/M_sol
+
+#Pressure Calculations
+
+G = 6.672e-11
+
+P0 = alpha0**2*4*np.pi*G*rho_c0**2*grad0**1
+P1 = (alpha1**2*4*np.pi*G*rho_c1**2*grad1**2)/2
+P2 = (alpha2**2*4*np.pi*G*rho_c2**2*grad2**3)/3
+P3 = (alpha3**2*4*np.pi*G*rho_c3**2*grad3**4)/4
+P4 = (alpha4**2*4*np.pi*G*rho_c4**2*grad4**5)/5
+
+#Log Pressure
+
+logP0 = np.log10(P0)
+logP1 = np.log10(P1)
+logP2 = np.log10(P2)
+logP3 = np.log10(P3)
+logP4 = np.log10(P4)
+
+#Temperature Calculations
+
+m_H = 1.674e-27
+k = 1.381e-23
+
+#Finding mu
+
+fig, axis = plt.subplots(figsize = (6,3))
+axis.plot(radius, mu, 'k')
+plt.show
+mu_av = np.median(mu)
+
+#Temperatures
+
+T0 = (m_H*mu_av*alpha0**2*4*np.pi*G*rho_c0*grad0)/k
+T1 = (m_H*mu_av*alpha1**2*4*np.pi*G*rho_c1*grad1)/(k*2)
+T2 = (m_H*mu_av*alpha2**2*4*np.pi*G*rho_c2*grad2)/(k*3)
+T3 = (m_H*mu_av*alpha3**2*4*np.pi*G*rho_c3*grad3)/(k*4)
+T4 = (m_H*mu_av*alpha4**2*4*np.pi*G*rho_c4*grad4)/(k*5)
+
+#Log Temperatures
+
+log_T0 = np.log10(T0)
+log_T1 = np.log10(T1)
+log_T2 = np.log10(T2)
+log_T3 = np.log10(T3)
+log_T4 = np.log10(T4)
+
+
+
+# Polytropic model data
+radius_models = [r0, r1, r2, r3, r4]
+mass_models = [M0, M1, M2, M3, M4]
+log_T_models = [log_T0, log_T1, log_T2, log_T3, log_T4]
+log_rho_models = [log_rho0, log_rho1, log_rho2, log_rho3, log_rho4]
+log_P_models = [logP0, logP1, logP2, logP3, logP4]
+
+# Create subplots
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+
+# Function to calculate MSE
+def calculate_mse(data, models):
+    return [np.mean((data - np.interp(radius_ssm, r, m))**2) for r, m in zip(radius_models, models)]
+
+# Plotting radii against mass
+axes[0, 0].plot(r0, M0, label='n=0')
+axes[0, 0].plot(r1, M1, label='n=1')
+axes[0, 0].plot(r2, M2, label='n=2')
+axes[0, 0].plot(r3, M3, label='n=3')
+axes[0, 0].plot(r4, M4, label='n=4')
+axes[0, 0].plot(radius_ssm, mass_ssm, label='Solar', linestyle='dotted')
+axes[0, 0].set_ylim(0, 1.0)
+axes[0, 0].set_ylabel('M/M☉')
+axes[0, 0].set_xlabel('r/R☉')
+axes[0, 0].legend()
+axes[0, 0].set_title('Radii vs Mass')
+
+# Plotting radii against log temperature
+axes[0, 1].plot(r0, log_T0, label='n=0')
+axes[0, 1].plot(r1, log_T1, label='n=1')
+axes[0, 1].plot(r2, log_T2, label='n=2')
+axes[0, 1].plot(r3, log_T3, label='n=3')
+axes[0, 1].plot(r4, log_T4, label='n=4')
+axes[0, 1].plot(radius_ssm, log_T_ssm, label='Solar', linestyle='dotted')
+axes[0, 1].set_ylim(4, 8)
+axes[0, 1].set_ylabel('logT/K')
+axes[0, 1].set_xlabel('r/R☉')
+axes[0, 1].legend()
+axes[0, 1].set_title('Radii vs. log Temperature')
+
+# Plotting radii against log density
+axes[1, 0].plot(r0, log_rho0, label='n=0')
+axes[1, 0].plot(r1, log_rho1, label='n=1')
+axes[1, 0].plot(r2, log_rho2, label='n=2')
+axes[1, 0].plot(r3, log_rho3, label='n=3')
+axes[1, 0].plot(r4, log_rho4, label='n=4')
+axes[1, 0].plot(radius_ssm, log_rho_ssm, label='Solar', linestyle='dotted')
+axes[1, 0].set_ylim(0, 7)
+axes[1, 0].set_ylabel('log(rho) (kgm^-3)')
+axes[1, 0].set_xlabel('r/R☉')
+axes[1, 0].set_title('Radii vs. log Density')
+axes[1, 0].legend()
+
+# Plotting radii against log pressure
+axes[1, 1].plot(r0, logP0, label='n=0')
+axes[1, 1].plot(r1, logP1, label='n=1')
+axes[1, 1].plot(r2, logP2, label='n=2')
+axes[1, 1].plot(r3, logP3, label='n=3')
+axes[1, 1].plot(r4, logP4, label='n=4')
+axes[1, 1].plot(radius_ssm, log_P_ssm, label='Solar', linestyle='dotted')
+axes[1, 1].set_ylim(0)
+axes[1, 1].set_ylabel('logP (Nm^-2)')
+axes[1, 1].set_xlabel('r/R☉')
+axes[1, 1].legend()
+axes[1, 1].set_title('Radii vs log Pressure')
+
+# Adjust layout to prevent overlapping of titles
+plt.tight_layout()
+
+# Save the entire figure
+plt.savefig("Combined_Plots_with_Closest_Models.png")
+
+# Show the plots
+plt.show()
+
+# Calculate MSE for each function
+mse_mass = calculate_mse(mass_ssm, mass_models)
+mse_log_T = calculate_mse(log_T_ssm, log_T_models)
+mse_log_rho = calculate_mse(log_rho_ssm, log_rho_models)
+mse_log_P = calculate_mse(log_P_ssm, log_P_models)
+
+# Identify the closest models for each function
+closest_model_mass_index = np.argmin(mse_mass)
+closest_model_log_T_index = np.argmin(mse_log_T)
+closest_model_log_rho_index = np.argmin(mse_log_rho)
+closest_model_log_P_index = np.argmin(mse_log_P)
+
+print(f"Closest model for Mass: n={closest_model_mass_index}")
+print(f"Closest model for log Temperature: n={closest_model_log_T_index}")
+print(f"Closest model for log Density: n={closest_model_log_rho_index}")
+print(f"Closest model for log Pressure: n={closest_model_log_P_index}")
+
+
+mse_values = [mse_mass, mse_log_T, mse_log_rho, mse_log_P]
+labels = ['Mass', 'log Temperature', 'log Density', 'log Pressure']
+
+bar_width = 0.2  # Adjust the width as needed
+colors = ['blue', 'orange', 'green', 'red']  # Assign colors to the bars and legend labels
+
+for i, (mse, label, color) in enumerate(zip(mse_values, labels, colors)):
+    plt.bar(np.arange(len(mse)) + i * bar_width, mse, width=bar_width, label=label, color=color)
+
+plt.xlabel('Polytropic Index (n)')
+plt.ylabel('Mean Squared Error (MSE)')
+plt.legend()
+plt.title('MSE for Different Variables and Polytropic Indices')
+plt.xticks(np.arange(len(mse)) + 0.5 * (len(mse_values) - 1) * bar_width, range(len(mse)))  # Center x-ticks
+plt.savefig("MSE Graph")
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
